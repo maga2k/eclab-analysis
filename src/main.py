@@ -99,8 +99,8 @@ if __name__ == "__main__":
         print(f"Files will be saved in: {output_folder}/")
 
         df = parser.parse_mpr_file(file_path)
-        plot.save_voltage_plot(df, folder_name=output_folder)
-
+        plot.save_time_series_plots(df, folder_name=output_folder)
+        
         csv_output_path = os.path.join(output_folder, f"{file_name_no_ext}_parsed.csv")
         df.to_csv(csv_output_path, index=False)
         print(f"DataFrame saved in CSV: {csv_output_path}")

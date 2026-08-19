@@ -2,16 +2,29 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-def save_voltage_plot(df, folder_name="plots", filename="voltage_plot.png"):
-    plt.figure(figsize=(10, 6))
-    plt.xlabel("time (s)")
-    plt.ylabel("voltage (V)")
-    plt.title("Voltage vs time")
-    plt.plot(df["voltage_V"])
+def save_time_series_plots(df, folder_name="plots", filename="voltage_current.png"):
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    ax1.plot(df["time_s"], df["voltage_V"])
+    ax1.set_ylabel("Voltage [V}]")
+    ax1.set_title("Voltage vs Time")
+    ax1.grid(True, linestyle='--', alpha=0.6)
+    ax1.legend(loc='upper right')
+    ax1.set_ylim(bottom=0)
+
+    ax2.plot(df["time_s"], df["control/V/mA"])
+    ax2.set_xlabel("Time [s]")
+    ax2.set_ylabel("Current [A]")
+    ax2.set_title("Current vs Time")
+    ax2.grid(True, linestyle='--', alpha=0.6)
+    ax2.set_ylim(bottom=min(df["control/V/mA"])-200)
+    
+    plt.tight_layout()
     save_path = os.path.join(folder_name, filename)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    #plt.show()
     plt.close()
+    print(f"Voltage & Current plot saved to: {save_path}")
+    
 
 def save_charge_plot(df, folder_name="plots", filename="charge_curves_plot.png"):
     if not os.path.exists(folder_name):
@@ -186,6 +199,7 @@ def save_power_and_energy_subplots(crate_dict, folder_name="plots", filename="po
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Power & Energy subplots saved to: {save_path}")
+
 
 def save_supercap_voltage_plots(crate_dict_supercap, folder_name="output"):
     """
