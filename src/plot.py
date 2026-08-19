@@ -1,7 +1,19 @@
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 
-def save_charge_plot(df, folder_name="plots", filename="viq_plot.png"):
+def save_voltage_plot(df, folder_name="plots", filename="voltage_plot.png"):
+    plt.figure(figsize=(10, 6))
+    plt.xlabel("time (s)")
+    plt.ylabel("voltage (V)")
+    plt.title("Voltage vs time")
+    plt.plot(df["voltage_V"])
+    save_path = os.path.join(folder_name, filename)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    #plt.show()
+    plt.close()
+
+def save_charge_plot(df, folder_name="plots", filename="charge_curves_plot.png"):
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
         
@@ -43,7 +55,7 @@ def save_charge_plot(df, folder_name="plots", filename="viq_plot.png"):
     print(f"Charge plot V-I-Q saved in: {save_path}")
 
 
-def save_coulombic_efficiency_plot(summary_df, folder_name="plots", filename="eff_plot.png"):
+def save_coulombic_efficiency_plot(summary_df, folder_name="plots", filename="coulombic_efficiency_plot.png"):
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
         
@@ -67,7 +79,7 @@ def save_coulombic_efficiency_plot(summary_df, folder_name="plots", filename="ef
     ax2.tick_params(axis='y', labelcolor=color_ce)
     
     # Fix axis limits
-    ax2.set_ylim(min(summary_df['coulombic_efficiency']), max(summary_df['coulombic_efficiency'])) 
+    ax2.set_ylim(min(summary_df['coulombic_efficiency'])-20, max(max(summary_df['coulombic_efficiency']),120)) 
     ax2.legend(loc='upper right')
 
     plt.title('Cycle Capacity and Coulombic Efficiency')
@@ -99,3 +111,104 @@ def save_crate_voltage_plots(crate_dict, folder_name="plots"):
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"C-rate plot saved in: {save_path}")
+
+
+def save_crate_capacity_plots(crate_dict, folder_name="plots"):
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+        
+    plt.figure(figsize=(10, 6))
+    
+    q_col = '(Q-Qo)/mA.h'
+    for label, df_discharge in crate_dict.items():
+        active_q_col = q_col if q_col in df_discharge.columns else df_discharge.columns[4]
+        
+        capacity_normalized = -(df_discharge[active_q_col] - df_discharge[active_q_col].iloc[0])
+        
+        plt.plot(capacity_normalized, df_discharge['voltage_V'], label=label, linewidth=2)
+        
+    plt.xlabel('Capacity (mA)')
+    plt.ylabel('Voltage (V)')
+    plt.title('Discharge Voltage Profiles across Different C-rates')
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.legend()
+    
+    save_path = os.path.join(folder_name, "voltage_vs_capacity_by_crate.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"C-rate plot saved in: {save_path}")
+
+
+def save_power_and_energy_subplots(crate_dict, folder_name="plots", filename="power_energy_vs_time.png"):
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+        
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    
+    for label, df_discharge in crate_dict.items():
+        time_s = df_discharge['time_s'].to_numpy()
+        time_s = time_s - time_s[0]
+        time_h = time_s / 3600.0    
+        
+        voltage = df_discharge['voltage_V'].to_numpy()
+        
+        current_a = abs(df_discharge["control/V/mA"].to_numpy()) / 1000.0 
+        
+        # Instantaneous Power (W) = Voltage * Current
+        power_w = voltage * current_a
+        
+        # Cumulative Energy (Wh) using safe trapezoidal integration over time (in hours)
+        dt_h = np.diff(time_h)
+        p_avg = (power_w[:-1] + power_w[1:]) / 2.0
+        energy_increments = dt_h * p_avg
+        energy_wh = np.concatenate([[0.0], np.cumsum(energy_increments)])
+        
+        # Instantaneous Power vs Time
+        ax1.plot(time_h, power_w, label=label, linewidth=2)
+        
+        # Cumulative Energy vs Time
+        ax2.plot(time_h, energy_wh, label=label, linewidth=2)
+        
+    ax1.set_ylabel("Power [W]")
+    ax1.set_title("Instantaneous Power vs Time (Discharge)")
+    ax1.grid(True, linestyle='--', alpha=0.6)
+    ax1.legend(loc='upper right')
+    ax1.set_ylim(bottom=0)
+    
+    ax2.set_xlabel("Time [h]")
+    ax2.set_ylabel("Energy [Wh]")
+    ax2.set_title("Cumulative Energy vs Time (Discharge)")
+    ax2.grid(True, linestyle='--', alpha=0.6)
+    ax2.set_ylim(bottom=0)
+    
+    plt.tight_layout()
+    save_path = os.path.join(folder_name, filename)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Power & Energy subplots saved to: {save_path}")
+
+def save_supercap_voltage_plots(crate_dict_supercap, folder_name="output"):
+    """
+    Saves the Voltage vs Time plot showing both charge and discharge for all selected supercapacitor files.
+    """
+    plt.figure(figsize=(10, 6))
+    
+    for label, df_disc in crate_dict_supercap.items():
+        time_s = df_disc['time_s'].to_numpy()
+        time_s = time_s - time_s[0]  # Normalize time to start at 0
+        time_h = time_s / 3600.0
+        voltage = df_disc['voltage_V'].to_numpy()
+        
+        plt.plot(time_h, voltage, label=label, linewidth=1.5)
+        
+    plt.xlabel("Time (hours)", fontsize=12)
+    plt.ylabel("Voltage (V)", fontsize=12)
+    plt.title("Voltage vs Time (Charge & Discharge) for Supercaps", fontsize=14, fontweight='bold')
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.legend(loc='upper right', fontsize=10)
+    plt.tight_layout()
+    
+    save_path = os.path.join(folder_name, "supercap_charge_discharge_voltage.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Supercap charge/discharge voltage plot saved to: {save_path}")
